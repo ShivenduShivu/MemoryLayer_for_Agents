@@ -73,7 +73,8 @@ Known minor: aiohttp "Unclosed client session" warning on disconnect (cosmetic; 
 - [M] Register with Claude Code (command provided)
 - [M] Register with Cursor (config provided)
 - [M] Register with Codex (config provided)
-- [ ] **Cross-agent loop: teach in Agent A -> recall in Agent B (and C)** (after registration)
+- [x] **CROSS-AGENT LOOP PROVEN (2026-07-04):** Claude Code taught JWT+React;
+      **Codex (OpenAI GPT-5.5) recalled them** from the shared brain. Kill test PASSED. 🎯
 
 Caveat: avoid rapid create/delete of the SAME dataset name in one burst — the
 cloud tenant can 409/500 on churn. Use fresh dataset/project names in tests.
@@ -133,3 +134,6 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
 - 2026-07-04 — Stage 2 API server done. 5 endpoints + auth (401 enforced). E2E test green.
   Finding: cognee provenance graph is local-sqlite-only -> Stage 5 uses own ledger.
   Decisions D7 (ample credit ~$37), D8 (Codex 3rd agent), D9 (permission allowlist) logged.
+- 2026-07-04 — Stage 3 MCP server done + KILL TEST PASSED: Claude Code taught JWT+React,
+  Codex (OpenAI) recalled from shared brain. Fixed Windows [Errno 22] stderr pipe issue.
+  Cross-agent, cross-vendor shared memory works end-to-end.
