@@ -121,10 +121,12 @@ Enable auto-capture (add to a Claude Code settings.json; needs the API server ru
 ```
 
 ### Stage 7 — Polish & Submit
-- [ ] README final + architecture diagram
-- [ ] 2-minute demo video
-- [ ] Deploy public URL
-- [ ] Submission form + AI-tool disclosure
+- [x] README final: pitch, prior-art table, mermaid architecture, Cognee scorecard,
+      research citations, setup, AI-disclosure
+- [x] LICENSE (MIT), DEMO.md runbook (2-min demo script)
+- [M] Record 2-minute demo video (you) — script in DEMO.md
+- [M] Deploy public URL (you; I can help wire Railway/Render for the API + Vercel/Streamlit Cloud)
+- [M] Submit hackathon form + declare AI assistance (you)
 
 ### Stretch (only if ahead)
 - [ ] Bi-temporal "what did we believe at time T"
