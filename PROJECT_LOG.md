@@ -78,6 +78,11 @@ Known minor: aiohttp "Unclosed client session" warning on disconnect (cosmetic; 
 Caveat: avoid rapid create/delete of the SAME dataset name in one burst — the
 cloud tenant can 409/500 on churn. Use fresh dataset/project names in tests.
 
+Fix (2026-07-04): Codex `passport_recall` hit `[Errno 22]` on Windows — verbose
+Cognee stderr filled the client's unread pipe (recall is chatty; remember wasn't).
+`run_mcp.py` now sets LOG_LEVEL=ERROR and redirects stderr to `mcp_server.log`
+BEFORE importing Cognee, keeping the client's stdio pipes clean.
+
 ### Stage 4 — Conflict Detection & Reconciliation
 - [ ] Detect contradictory facts on write (embedding threshold + same entity)
 - [ ] `improve()` reconciles / deprecates stale node

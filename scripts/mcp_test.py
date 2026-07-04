@@ -19,7 +19,7 @@ async def main() -> None:
     # (home dir) to prove the server is cwd-independent, like an IDE would.
     params = StdioServerParameters(
         command=sys.executable,  # the venv python running this test
-        args=[os.path.join(ROOT, "run_mcp.py"), "--agent", "test-agent", "--project", "stage3check"],
+        args=[os.path.join(ROOT, "run_mcp.py"), "--agent", "test-agent", "--project", "stage3verify"],
         cwd=os.path.expanduser("~"),
     )
     async with stdio_client(params) as (read, write):
@@ -38,7 +38,7 @@ async def main() -> None:
             r = await session.call_tool("passport_recall", {"query": "what is the mascot and its name?"})
             print("RECALL:", r.content[0].text)
 
-            r = await session.call_tool("passport_forget", {"project": "stage3check"})
+            r = await session.call_tool("passport_forget", {"project": "stage3verify"})
             print("FORGET:", r.content[0].text)
 
     print("\nMCP TEST COMPLETE.")
