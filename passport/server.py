@@ -67,6 +67,7 @@ class RememberBody(BaseModel):
     agent: str
     session: str = ""
     project: str = "default"
+    background: bool = False
 
 
 class RecallBody(BaseModel):
@@ -107,7 +108,8 @@ async def health() -> dict:
 @app.post("/remember", dependencies=[Depends(require_key)])
 async def remember_endpoint(body: RememberBody) -> dict:
     result = await memory.remember(
-        body.text, agent=body.agent, session=body.session, project=body.project
+        body.text, agent=body.agent, session=body.session,
+        project=body.project, background=body.background,
     )
     return {
         "ok": True,

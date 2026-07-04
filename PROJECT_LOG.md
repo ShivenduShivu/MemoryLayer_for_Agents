@@ -104,9 +104,21 @@ BEFORE importing Cognee, keeping the client's stdio pipes clean.
 - [x] Boots headless with no errors; renders the 3 ledger memories + 1 conflict
 - [M] Visually confirm in browser (you): `streamlit run dashboard/app.py`
 
-### Stage 6 — Depth (SHOULD items)
-- [ ] Provenance/recency/importance retrieval scoring
-- [ ] Auto-capture hook for Claude Code (Stop hook -> /remember)
+### Stage 6 — Depth (SHOULD items)  ✅ (marquee done)
+- [x] **Auto-capture hook** (`hooks/capture_hook.py`): UserPromptSubmit -> POST /remember.
+      Verified: durable facts captured in ~950ms (background ingest), questions filtered.
+- [x] **Importance filter** (`looks_durable`): only durable facts/prefs/decisions are
+      kept (research: importance-scored retention). Avoids memory noise.
+- [x] Background ingestion path (`remember(background=True)`) so capture never blocks a turn.
+- [~] Full recency/importance re-ranking of recall: recall already uses Cognee's hybrid
+      auto-routing; deeper re-ranking left as stretch.
+- [M] Enable hook in Claude Code (config below) + run the API server for it to post to.
+
+Enable auto-capture (add to a Claude Code settings.json; needs the API server running):
+```
+{"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command",
+  "command": "C:\\Users\\shive\\AppData\\Local\\Programs\\passport\\.venv\\Scripts\\python.exe C:\\Users\\shive\\AppData\\Local\\Programs\\passport\\hooks\\capture_hook.py"}]}]}}
+```
 
 ### Stage 7 — Polish & Submit
 - [ ] README final + architecture diagram
@@ -148,3 +160,7 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
   404 on Cloud (OSS-only). Endpoints /conflicts /reconcile /ledger added.
 - 2026-07-04 — Stage 5 done: Streamlit dashboard — provenance graph colored by agent,
   timeline, conflict log, metrics, live recall/detect controls. Boots clean headless.
+  Dashboard visually confirmed by user (screenshot): 3 agents, resolved conflict.
+- 2026-07-04 — Stage 6 done: auto-capture hook (UserPromptSubmit -> /remember) with
+  importance filter; ~950ms via background ingestion; questions filtered. API server
+  is now the live hub. remember(background=True) added.

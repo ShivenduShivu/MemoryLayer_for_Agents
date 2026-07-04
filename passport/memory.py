@@ -94,13 +94,19 @@ async def remember(
     agent: str,
     session: str = "",
     project: str = "default",
+    background: bool = False,
 ) -> Any:
-    """Ingest a memory, tagged with provenance. Also recorded in the local ledger."""
+    """Ingest a memory, tagged with provenance. Also recorded in the local ledger.
+
+    background=True queues Cognee ingestion and returns fast (used by auto-capture
+    so it never blocks a turn); the ledger is updated immediately either way.
+    """
     await connect()
     result = await cognee.remember(
         text,
         dataset_name=dataset_for(project),
         node_set=provenance_tags(agent, session, project),
+        run_in_background=background,
     )
     # Mirror into the provenance ledger (who taught what) for the dashboard + conflicts.
     try:
