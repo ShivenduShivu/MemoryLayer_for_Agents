@@ -43,14 +43,16 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress · `[M]` needs your manual
 - [ ] `git init`, remote added, first commit + push
 - [M] Confirm GitHub email attribution = ShivenduShivu
 
-### Stage 1 — Memory Engine Core (the foundation of the kill test)
-- [ ] `memory.py`: connect to Cognee Cloud via SDK
-- [ ] `remember(text, agent, session, project)` with `node_set` provenance tags
-- [ ] `recall(query, scope)` hybrid graph+vector
-- [ ] `improve()` / memify wrapper
-- [ ] `forget(dataset)` wrapper
-- [ ] `scripts/smoke_test.py`: remember -> recall round-trip proves it works
-- [M] Run smoke test against live Cloud instance (you run it, confirm output)
+### Stage 1 — Memory Engine Core (the foundation of the kill test)  ✅ DONE
+- [x] `memory.py`: connect to Cognee Cloud via SDK (`serve()`)
+- [x] `remember(text, agent, session, project)` with `node_set` provenance tags
+- [x] `recall(query, scope)` hybrid graph+vector — **confirmed graph traversal (source: 'graph')**
+- [~] `improve()` / memify wrapper (written; verified in Stage 4)
+- [x] `forget(dataset)` wrapper
+- [x] `scripts/smoke_test.py`: remember -> recall round-trip proves it works
+- [x] Smoke test passed against live Cloud tenant (2026-07-04)
+
+Known minor: aiohttp "Unclosed client session" warning on disconnect (cosmetic; Cognee CloudClient session cleanup — revisit if noisy).
 
 ### Stage 2 — Passport API Server
 - [ ] `server.py`: FastAPI with `/remember /recall /improve /forget /graph`
@@ -105,4 +107,7 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
 ---
 
 ## 4. Changelog
-- 2026-07-04 — Scaffolding + PROJECT_LOG created. Stage 0 near complete.
+- 2026-07-04 — Scaffolding + PROJECT_LOG created. Stage 0 committed & pushed (c8830aa).
+- 2026-07-04 — Stage 1 memory engine done. Verified real API: `remember(node_set=...)`,
+  `recall(node_name=..., auto_route=True)`, `improve`, `forget`, `serve` (all async).
+  Smoke test round-trip green on Cognee Cloud; recall answered via graph traversal.
