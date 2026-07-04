@@ -16,7 +16,7 @@ import cognee
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from . import config, memory
+from . import config, ledger, memory
 
 
 @asynccontextmanager
@@ -86,6 +86,16 @@ class ForgetBody(BaseModel):
     everything: bool = False
 
 
+class ConflictBody(BaseModel):
+    project: str = "default"
+
+
+class ReconcileBody(BaseModel):
+    project: str = "default"
+    resolution: Optional[str] = None
+    agent: str = "passport"
+
+
 # --------------------------------------------------------------------------
 # Endpoints
 # --------------------------------------------------------------------------
@@ -116,14 +126,42 @@ async def recall_endpoint(body: RecallBody) -> dict:
 
 @app.post("/improve", dependencies=[Depends(require_key)])
 async def improve_endpoint(body: ImproveBody) -> dict:
-    result = await memory.improve(project=body.project, node_name=body.node_name)
-    return {"ok": True, "result": _serialize(result)}
+    # memify is not exposed on Cognee Cloud (404); degrade gracefully.
+    try:
+        result = await memory.improve(project=body.project, node_name=body.node_name)
+        return {"ok": True, "result": _serialize(result)}
+    except Exception as e:
+        return {"ok": False, "error": f"memify not available on this backend: {e}"}
 
 
 @app.post("/forget", dependencies=[Depends(require_key)])
 async def forget_endpoint(body: ForgetBody) -> dict:
     result = await memory.forget(project=body.project, everything=body.everything)
     return {"ok": True, "result": _serialize(result)}
+
+
+@app.post("/conflicts", dependencies=[Depends(require_key)])
+async def conflicts_endpoint(body: ConflictBody) -> dict:
+    result = await memory.detect_conflicts(project=body.project)
+    return {"ok": True, **result}
+
+
+@app.post("/reconcile", dependencies=[Depends(require_key)])
+async def reconcile_endpoint(body: ReconcileBody) -> dict:
+    result = await memory.reconcile(
+        project=body.project, resolution=body.resolution, agent=body.agent
+    )
+    return result
+
+
+@app.get("/ledger", dependencies=[Depends(require_key)])
+async def ledger_endpoint(project: Optional[str] = None) -> dict:
+    """Provenance ledger: who taught what, plus the conflict log (dashboard source)."""
+    return {
+        "ok": True,
+        "memories": ledger.list_memories(project),
+        "conflicts": ledger.list_conflicts(project),
+    }
 
 
 @app.get("/graph", dependencies=[Depends(require_key)])

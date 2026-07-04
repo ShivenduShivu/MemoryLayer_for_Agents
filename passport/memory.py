@@ -17,9 +17,31 @@ from typing import Any
 
 import cognee
 
-from . import config
+from . import config, ledger
 
 _connected = False
+
+# System prompt that turns a normal recall into a contradiction detector,
+# using Cognee's own (cloud) LLM — no extra provider key needed.
+_CONFLICT_SYSTEM_PROMPT = (
+    "You are a memory conflict detector for a team's shared knowledge base. "
+    "From the provided context of stored memories, identify pairs of statements that "
+    "DIRECTLY CONTRADICT each other (same subject, incompatible values — for example "
+    "'the database is Postgres' vs 'the database is MySQL'). "
+    "For EACH conflict output exactly one line in the form: "
+    "CONFLICT: <subject> - '<statement A>' vs '<statement B>'. "
+    "If there are no contradictions, output exactly: NO CONFLICTS."
+)
+
+
+def _text_of(item: Any) -> str:
+    for attr in ("text", "answer"):
+        v = getattr(item, attr, None)
+        if v:
+            return v
+    if isinstance(item, dict):
+        return item.get("text") or item.get("answer") or str(item)
+    return str(item)
 
 
 # --------------------------------------------------------------------------
@@ -73,13 +95,19 @@ async def remember(
     session: str = "",
     project: str = "default",
 ) -> Any:
-    """Ingest a memory, tagged with provenance."""
+    """Ingest a memory, tagged with provenance. Also recorded in the local ledger."""
     await connect()
-    return await cognee.remember(
+    result = await cognee.remember(
         text,
         dataset_name=dataset_for(project),
         node_set=provenance_tags(agent, session, project),
     )
+    # Mirror into the provenance ledger (who taught what) for the dashboard + conflicts.
+    try:
+        ledger.record_memory(agent=agent, session=session, project=project, text=text)
+    except Exception:
+        pass
+    return result
 
 
 async def recall(
@@ -115,3 +143,60 @@ async def forget(*, project: str | None = None, everything: bool = False) -> dic
     if not project:
         raise ValueError("forget() needs a project, or everything=True")
     return await cognee.forget(dataset=dataset_for(project))
+
+
+# --------------------------------------------------------------------------
+# Conflict detection + reconciliation (the "Best Use of Cognee" differentiator)
+# --------------------------------------------------------------------------
+async def detect_conflicts(*, project: str = "default") -> dict:
+    """Ask Cognee's LLM to surface contradictory memories in a project.
+
+    Returns {"has_conflicts": bool, "conflicts": [str], "raw": str} and records
+    any found conflicts in the ledger for the dashboard.
+    """
+    await connect()
+    results = await cognee.recall(
+        "Find any contradictory or conflicting facts among the stored memories about "
+        "databases, languages, tools, settings, conventions, and decisions.",
+        datasets=[dataset_for(project)],
+        system_prompt=_CONFLICT_SYSTEM_PROMPT,
+        top_k=50,
+        auto_route=True,
+    )
+    raw = "\n".join(_text_of(r) for r in results).strip()
+    conflicts = [
+        line.strip()
+        for line in raw.splitlines()
+        if line.strip().upper().startswith("CONFLICT:")
+    ]
+    for desc in conflicts:
+        try:
+            ledger.record_conflict(project=project, description=desc)
+        except Exception:
+            pass
+    return {"has_conflicts": bool(conflicts), "conflicts": conflicts, "raw": raw}
+
+
+async def reconcile(*, project: str = "default", resolution: str | None = None,
+                    agent: str = "passport") -> dict:
+    """Reconcile a project's memory: record an authoritative resolution fact, mark
+    ledger conflicts resolved, and run improve()/memify if the backend supports it.
+
+    Note: memify is not exposed on Cognee Cloud (404), so it runs only in
+    self-hosted/OSS mode; reconciliation still works via the resolution fact.
+    """
+    await connect()
+    memify = {"ran": False, "detail": None}
+    try:
+        improved = await cognee.improve(dataset=dataset_for(project))
+        memify = {"ran": True, "detail": _text_of(improved) if improved else None}
+    except Exception as e:
+        memify = {"ran": False, "detail": f"memify not available on this backend ({e})"}
+
+    if resolution:
+        await remember(resolution, agent=agent, session="reconcile", project=project)
+    try:
+        ledger.mark_conflicts_resolved(project)
+    except Exception:
+        pass
+    return {"ok": True, "resolution": resolution, "memify": memify}

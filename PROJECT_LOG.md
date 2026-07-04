@@ -84,15 +84,19 @@ Cognee stderr filled the client's unread pipe (recall is chatty; remember wasn't
 `run_mcp.py` now sets LOG_LEVEL=ERROR and redirects stderr to `mcp_server.log`
 BEFORE importing Cognee, keeping the client's stdio pipes clean.
 
-### Stage 4 — Conflict Detection & Reconciliation
-- [ ] Detect contradictory facts on write (embedding threshold + same entity)
-- [ ] `improve()` reconciles / deprecates stale node
-- [ ] Conflict log persisted for the dashboard
+### Stage 4 — Conflict Detection & Reconciliation  ✅ DONE
+- [x] **Conflict detection via Cognee's own LLM** (custom-prompted `recall`) — no extra key.
+      Verified: caught Postgres(claude-code) vs MySQL(cursor).
+- [x] Provenance ledger (`ledger.py`, SQLite) records who-taught-what + conflict log
+- [x] `reconcile()`: authoritative resolution fact + mark resolved; recall now returns
+      the resolved answer ("primary database is MySQL")
+- [!] `improve()`/memify returns 404 on Cognee Cloud — runs only in self-hosted/OSS.
+      Reconciliation works without it; memify is a bonus we can show in OSS mode.
+- [x] Endpoints: `/conflicts`, `/reconcile`, `/ledger` (+ graceful `/improve`)
 
 ### Stage 5 — Dashboard
-- [ ] **Passport provenance ledger** (local JSON/SQLite of every remember: agent,
-      session, project, text, timestamp) — the source for the dashboard graph,
-      since cognee's provenance graph is local-sqlite-only and empty in cloud mode
+- [x] **Passport provenance ledger** (`ledger.py`, SQLite) — built in Stage 4; the
+      source for the dashboard graph + conflict log. `/ledger` endpoint serves it.
 - [ ] Streamlit app: live knowledge graph from the ledger
 - [ ] Nodes colored by source agent (provenance)
 - [ ] Conflict log panel
@@ -137,3 +141,6 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
 - 2026-07-04 — Stage 3 MCP server done + KILL TEST PASSED: Claude Code taught JWT+React,
   Codex (OpenAI) recalled from shared brain. Fixed Windows [Errno 22] stderr pipe issue.
   Cross-agent, cross-vendor shared memory works end-to-end.
+- 2026-07-04 — Stage 4 done: conflict detection via Cognee LLM (caught Postgres vs MySQL),
+  provenance ledger (SQLite), reconcile() with authoritative resolution. Finding: memify
+  404 on Cloud (OSS-only). Endpoints /conflicts /reconcile /ledger added.
