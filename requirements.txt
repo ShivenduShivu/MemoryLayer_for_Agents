@@ -1,0 +1,14 @@
+# Core memory engine
+cognee
+
+# Passport API server
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+
+# MCP server (exposes remember/recall/forget to Claude Code, Cursor, Codex)
+mcp
+
+# Dashboard
+streamlit
