@@ -25,3 +25,7 @@ venv/
 
 # MCP server logs
 *.log
+
+# SQLite WAL sidecars
+*.db-shm
+*.db-wal
