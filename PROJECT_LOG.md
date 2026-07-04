@@ -97,10 +97,12 @@ BEFORE importing Cognee, keeping the client's stdio pipes clean.
 ### Stage 5 — Dashboard
 - [x] **Passport provenance ledger** (`ledger.py`, SQLite) — built in Stage 4; the
       source for the dashboard graph + conflict log. `/ledger` endpoint serves it.
-- [ ] Streamlit app: live knowledge graph from the ledger
-- [ ] Nodes colored by source agent (provenance)
-- [ ] Conflict log panel
-- [ ] Timeline / recent memories view
+- [x] Streamlit app (`dashboard/app.py`): provenance graph via graphviz (no extra deps)
+- [x] Nodes colored by source agent (provenance) + legend + metrics
+- [x] Conflict log panel (open/resolved)
+- [x] Timeline / recent memories view + live demo controls (recall / detect conflicts)
+- [x] Boots headless with no errors; renders the 3 ledger memories + 1 conflict
+- [M] Visually confirm in browser (you): `streamlit run dashboard/app.py`
 
 ### Stage 6 — Depth (SHOULD items)
 - [ ] Provenance/recency/importance retrieval scoring
@@ -144,3 +146,5 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
 - 2026-07-04 — Stage 4 done: conflict detection via Cognee LLM (caught Postgres vs MySQL),
   provenance ledger (SQLite), reconcile() with authoritative resolution. Finding: memify
   404 on Cloud (OSS-only). Endpoints /conflicts /reconcile /ledger added.
+- 2026-07-04 — Stage 5 done: Streamlit dashboard — provenance graph colored by agent,
+  timeline, conflict log, metrics, live recall/detect controls. Boots clean headless.
