@@ -24,6 +24,9 @@ Update this file as decisions change or stages complete.
 | D7 | 2026-07-04 | **Cognee Cloud credit = ~$37 (ample).** Use freely when genuinely needed for verification; just avoid wasteful/repeated calls. `local` OSS mode remains a fallback if ever needed | User confirmed ample credit |
 | D8 | 2026-07-04 | **Codex is a 3rd fleet agent.** Demo = Claude Code + Cursor + Codex, all MCP clients sharing one brain (stronger cross-agent story). May also use Codex to assist implementation | User has Codex; more heterogeneous agents = better demo |
 | D9 | 2026-07-04 | Dev-prompt reduction: `.claude/settings.local.json` in **both** roots (codeforces session root + passport), gitignored, allowlists safe commands; `git push`/`rm`/`reset --hard` still prompt | Works whether Claude Code is launched from either folder |
+| D10 | 2026-07-04 | **Multi-tenancy** via tenant-namespaced datasets (`passport_{tenant}_{project}`) + `tenant:` node_set tag + ledger `tenant` column | Logical isolation within one Cognee tenant; per-user Cognee tenants = production path |
+| D11 | 2026-07-04 | **recall uses CHUNKS (dataset-scoped), not GRAPH/RAG completion** | Finding: completion recall leaks across datasets in a shared tenant; CHUNKS is provably isolated. Passport returns faithful facts, the agent synthesizes. Conflict detection still uses graph completion. |
+| D12 | 2026-07-04 | Disable Cognee session cache (`CACHING=false`) before import | Session memory returned stale cross-session context; off = recall reflects the actual dataset |
 
 **Open decisions / to revisit:**
 - Rotate the exposed Cognee API key before/after submission (flagged, user's call).
@@ -128,6 +131,15 @@ Enable auto-capture (add to a Claude Code settings.json; needs the API server ru
 - [M] Deploy public URL (you; I can help wire Railway/Render for the API + Vercel/Streamlit Cloud)
 - [M] Submit hackathon form + declare AI assistance (you)
 
+### Stage 8 — Multi-tenancy & isolation  ✅ DONE
+- [x] `tenant` threaded through memory, ledger, server, MCP (`--tenant`), hook, dashboard
+- [x] Tenant-namespaced Cognee datasets + `tenant:` node_set tag + ledger `tenant` column (with migration)
+- [x] **Isolation verified** (`scripts/tenant_test.py`): alice sees only her data, bob only his — no leak
+- [x] Recall switched to dataset-scoped **CHUNKS** (provably isolated); `CACHING=false`
+- [x] `forget()` now also clears the ledger (Stage-10 consistency, done early)
+- [x] Dashboard has a **tenant selector** to view each user's isolated brain
+- Key finding logged (D11): completion-mode recall leaks across datasets in a shared tenant.
+
 ### Stretch (only if ahead)
 - [ ] Bi-temporal "what did we believe at time T"
 - [ ] LLM importance auto-scoring
@@ -166,3 +178,8 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
 - 2026-07-04 — Stage 6 done: auto-capture hook (UserPromptSubmit -> /remember) with
   importance filter; ~950ms via background ingestion; questions filtered. API server
   is now the live hub. remember(background=True) added.
+- 2026-07-04 — Stage 7 docs: README (diagram+citations), LICENSE, DEMO.md. Deep-dive PDF
+  generated locally (gitignored, user reference only).
+- 2026-07-04 — Stage 8 done: MULTI-TENANCY. tenant end-to-end; isolation test passed.
+  Critical finding: graph/RAG completion recall leaks across datasets in a shared Cognee
+  tenant -> switched recall to dataset-scoped CHUNKS (isolated). CACHING=false. forget syncs ledger.

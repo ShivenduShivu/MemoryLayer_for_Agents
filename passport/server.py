@@ -67,6 +67,7 @@ class RememberBody(BaseModel):
     agent: str
     session: str = ""
     project: str = "default"
+    tenant: str = "default"
     background: bool = False
 
 
@@ -74,25 +75,30 @@ class RecallBody(BaseModel):
     query: str
     agent: Optional[str] = None
     project: str = "default"
+    tenant: str = "default"
     top_k: int = 10
 
 
 class ImproveBody(BaseModel):
     project: str = "default"
+    tenant: str = "default"
     node_name: Optional[list[str]] = None
 
 
 class ForgetBody(BaseModel):
     project: Optional[str] = None
+    tenant: str = "default"
     everything: bool = False
 
 
 class ConflictBody(BaseModel):
     project: str = "default"
+    tenant: str = "default"
 
 
 class ReconcileBody(BaseModel):
     project: str = "default"
+    tenant: str = "default"
     resolution: Optional[str] = None
     agent: str = "passport"
 
@@ -109,11 +115,11 @@ async def health() -> dict:
 async def remember_endpoint(body: RememberBody) -> dict:
     result = await memory.remember(
         body.text, agent=body.agent, session=body.session,
-        project=body.project, background=body.background,
+        project=body.project, tenant=body.tenant, background=body.background,
     )
     return {
         "ok": True,
-        "provenance": memory.provenance_tags(body.agent, body.session, body.project),
+        "provenance": memory.provenance_tags(body.agent, body.session, body.project, body.tenant),
         "result": _serialize(result),
     }
 
@@ -121,7 +127,8 @@ async def remember_endpoint(body: RememberBody) -> dict:
 @app.post("/recall", dependencies=[Depends(require_key)])
 async def recall_endpoint(body: RecallBody) -> dict:
     results = await memory.recall(
-        body.query, agent=body.agent, project=body.project, top_k=body.top_k
+        body.query, agent=body.agent, project=body.project,
+        tenant=body.tenant, top_k=body.top_k,
     )
     return {"ok": True, "count": len(results), "results": _serialize(results)}
 
@@ -130,7 +137,7 @@ async def recall_endpoint(body: RecallBody) -> dict:
 async def improve_endpoint(body: ImproveBody) -> dict:
     # memify is not exposed on Cognee Cloud (404); degrade gracefully.
     try:
-        result = await memory.improve(project=body.project, node_name=body.node_name)
+        result = await memory.improve(project=body.project, tenant=body.tenant, node_name=body.node_name)
         return {"ok": True, "result": _serialize(result)}
     except Exception as e:
         return {"ok": False, "error": f"memify not available on this backend: {e}"}
@@ -138,31 +145,32 @@ async def improve_endpoint(body: ImproveBody) -> dict:
 
 @app.post("/forget", dependencies=[Depends(require_key)])
 async def forget_endpoint(body: ForgetBody) -> dict:
-    result = await memory.forget(project=body.project, everything=body.everything)
+    result = await memory.forget(project=body.project, tenant=body.tenant, everything=body.everything)
     return {"ok": True, "result": _serialize(result)}
 
 
 @app.post("/conflicts", dependencies=[Depends(require_key)])
 async def conflicts_endpoint(body: ConflictBody) -> dict:
-    result = await memory.detect_conflicts(project=body.project)
+    result = await memory.detect_conflicts(project=body.project, tenant=body.tenant)
     return {"ok": True, **result}
 
 
 @app.post("/reconcile", dependencies=[Depends(require_key)])
 async def reconcile_endpoint(body: ReconcileBody) -> dict:
     result = await memory.reconcile(
-        project=body.project, resolution=body.resolution, agent=body.agent
+        project=body.project, tenant=body.tenant,
+        resolution=body.resolution, agent=body.agent,
     )
     return result
 
 
 @app.get("/ledger", dependencies=[Depends(require_key)])
-async def ledger_endpoint(project: Optional[str] = None) -> dict:
+async def ledger_endpoint(tenant: Optional[str] = None, project: Optional[str] = None) -> dict:
     """Provenance ledger: who taught what, plus the conflict log (dashboard source)."""
     return {
         "ok": True,
-        "memories": ledger.list_memories(project),
-        "conflicts": ledger.list_conflicts(project),
+        "memories": ledger.list_memories(tenant, project),
+        "conflicts": ledger.list_conflicts(tenant, project),
     }
 
 

@@ -23,15 +23,16 @@ from mcp.server.fastmcp import FastMCP
 from . import memory
 
 
-def _identity() -> tuple[str, str]:
+def _identity() -> tuple[str, str, str]:
     p = argparse.ArgumentParser(description="Passport MCP server")
     p.add_argument("--agent", default=os.getenv("PASSPORT_AGENT", "unknown-agent"))
     p.add_argument("--project", default=os.getenv("PASSPORT_PROJECT", "fleet"))
+    p.add_argument("--tenant", default=os.getenv("PASSPORT_TENANT", "default"))
     args, _ = p.parse_known_args()
-    return args.agent, args.project
+    return args.agent, args.project, args.tenant
 
 
-AGENT, PROJECT = _identity()
+AGENT, PROJECT, TENANT = _identity()
 mcp = FastMCP("passport")
 
 
@@ -51,7 +52,7 @@ async def passport_remember(text: str, session: str = "") -> str:
     team memory so every agent (Claude Code, Cursor, Codex) can recall it later.
     Use whenever the user states something worth remembering across sessions/tools."""
     with contextlib.redirect_stdout(sys.stderr):
-        await memory.remember(text, agent=AGENT, session=session, project=PROJECT)
+        await memory.remember(text, agent=AGENT, session=session, project=PROJECT, tenant=TENANT)
     return f"Remembered (by {AGENT}): {text}"
 
 
@@ -60,7 +61,7 @@ async def passport_recall(query: str) -> str:
     """Recall relevant facts from the shared team memory written by ANY agent.
     Use before answering when past preferences, decisions, or context may exist."""
     with contextlib.redirect_stdout(sys.stderr):
-        results = await memory.recall(query, project=PROJECT)
+        results = await memory.recall(query, project=PROJECT, tenant=TENANT)
     if not results:
         return "No relevant memory found in the Passport."
     return "\n".join(f"- {_text_of(r)}" for r in results)
@@ -70,7 +71,7 @@ async def passport_recall(query: str) -> str:
 async def passport_forget(project: str) -> str:
     """Delete all shared memories for a given project/workspace."""
     with contextlib.redirect_stdout(sys.stderr):
-        await memory.forget(project=project)
+        await memory.forget(project=project, tenant=TENANT)
     return f"Forgot all memories for project: {project}"
 
 

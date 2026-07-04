@@ -58,6 +58,7 @@ def main() -> None:
         "text": prompt,
         "agent": os.getenv("PASSPORT_AGENT", "claude-code"),
         "project": os.getenv("PASSPORT_PROJECT", "fleet"),
+        "tenant": os.getenv("PASSPORT_TENANT", "default"),
         "session": "auto-capture",
         "background": True,  # queue Cognee ingestion; server returns fast
     }).encode()

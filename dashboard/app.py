@@ -66,10 +66,12 @@ st.title("🧳 Passport — Shared Memory for Your Agent Fleet")
 st.caption("One brain for Claude Code, Cursor & Codex — and it remembers who taught it what.")
 
 # ---- sidebar ----
-all_mems = ledger.list_memories()
-projects = sorted({m["project"] for m in all_mems}) or ["fleet"]
+tenants = ledger.list_tenants() or ["default"]
 with st.sidebar:
     st.header("View")
+    tenant = st.selectbox("Tenant (user / workspace)", tenants, index=0)
+    tenant_mems = ledger.list_memories(tenant)
+    projects = sorted({m["project"] for m in tenant_mems}) or ["fleet"]
     project = st.selectbox("Project", projects, index=0)
     if st.button("🔄 Refresh"):
         st.rerun()
@@ -80,15 +82,17 @@ with st.sidebar:
     q = st.text_input("Recall query", "")
     if st.button("Recall") and q:
         with st.spinner("Recalling…"):
-            res = run_async(memory.recall(q, project=project))
+            res = run_async(memory.recall(q, project=project, tenant=tenant))
         st.session_state["recall"] = [memory._text_of(x) for x in res] or ["(nothing found)"]
     if st.button("Detect conflicts"):
         with st.spinner("Asking Cognee's LLM…"):
-            st.session_state["detect"] = run_async(memory.detect_conflicts(project=project))
+            st.session_state["detect"] = run_async(memory.detect_conflicts(project=project, tenant=tenant))
 
-# ---- data for the selected project ----
-mems = ledger.list_memories(project)
-conflicts = ledger.list_conflicts(project)
+st.caption(f"Viewing tenant **{tenant}** · project **{project}** — isolated from other tenants.")
+
+# ---- data for the selected tenant + project ----
+mems = ledger.list_memories(tenant, project)
+conflicts = ledger.list_conflicts(tenant, project)
 agents = sorted({m["agent"] for m in mems})
 
 c1, c2, c3, c4 = st.columns(4)

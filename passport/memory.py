@@ -13,7 +13,13 @@ All public functions are async (Cognee's V2 API is async).
 """
 from __future__ import annotations
 
+import os
 from typing import Any
+
+# Disable Cognee's session memory/cache BEFORE importing cognee, so recall reflects
+# the actual per-tenant dataset (not stale cross-session context). Critical for
+# tenant isolation. (Cognee 1.0 enables session memory by default.)
+os.environ.setdefault("CACHING", "false")
 
 import cognee
 
@@ -47,21 +53,27 @@ def _text_of(item: Any) -> str:
 # --------------------------------------------------------------------------
 # Provenance helpers
 # --------------------------------------------------------------------------
-def provenance_tags(agent: str, session: str, project: str) -> list[str]:
+def provenance_tags(agent: str, session: str, project: str, tenant: str) -> list[str]:
     """Stable provenance tags used as the Cognee node_set for a memory.
 
     Filtering recall by any of these (via node_name) answers questions like
     "what did the claude-code agent teach us about this project?".
     """
-    tags = [f"agent:{agent}", f"project:{project}"]
+    tags = [f"tenant:{tenant}", f"agent:{agent}", f"project:{project}"]
     if session:
         tags.append(f"session:{session}")
     return tags
 
 
-def dataset_for(project: str) -> str:
-    """One Cognee dataset per project, so forget()/improve() scope cleanly."""
-    return "passport_" + project.strip().replace(" ", "_").lower()
+def _clean(s: str) -> str:
+    return s.strip().replace(" ", "_").lower()
+
+
+def dataset_for(tenant: str, project: str) -> str:
+    """One Cognee dataset per (tenant, project). Tenant-namespacing isolates users:
+    recall only searches the caller's tenant dataset, so users can't see each
+    other's memory."""
+    return f"passport_{_clean(tenant)}_{_clean(project)}"
 
 
 # --------------------------------------------------------------------------
@@ -94,6 +106,7 @@ async def remember(
     agent: str,
     session: str = "",
     project: str = "default",
+    tenant: str = "default",
     background: bool = False,
 ) -> Any:
     """Ingest a memory, tagged with provenance. Also recorded in the local ledger.
@@ -104,13 +117,13 @@ async def remember(
     await connect()
     result = await cognee.remember(
         text,
-        dataset_name=dataset_for(project),
-        node_set=provenance_tags(agent, session, project),
+        dataset_name=dataset_for(tenant, project),
+        node_set=provenance_tags(agent, session, project, tenant),
         run_in_background=background,
     )
     # Mirror into the provenance ledger (who taught what) for the dashboard + conflicts.
     try:
-        ledger.record_memory(agent=agent, session=session, project=project, text=text)
+        ledger.record_memory(tenant=tenant, agent=agent, session=session, project=project, text=text)
     except Exception:
         pass
     return result
@@ -121,40 +134,55 @@ async def recall(
     *,
     agent: str | None = None,
     project: str = "default",
+    tenant: str = "default",
     top_k: int = 10,
 ) -> list[Any]:
-    """Hybrid (vector + graph) recall. Optionally scope to one agent's memories."""
+    """Recall the caller's own stored facts, HARD-scoped to their tenant dataset.
+
+    We use dataset-scoped CHUNKS retrieval (not graph/RAG completion) because it is
+    provably isolated per dataset — completion modes can surface cross-dataset
+    associations from a shared Cognee tenant. Passport returns the tenant's faithful
+    facts; the calling agent synthesizes. Optionally further scope to one agent.
+    """
     await connect()
     node_name = [f"agent:{agent}"] if agent else None
     return await cognee.recall(
         query,
-        datasets=[dataset_for(project)],
+        datasets=[dataset_for(tenant, project)],
+        query_type=cognee.SearchType.CHUNKS,
+        auto_route=False,
         node_name=node_name,
         top_k=top_k,
-        auto_route=True,
     )
 
 
-async def improve(*, project: str = "default", node_name: list[str] | None = None) -> Any:
+async def improve(*, project: str = "default", tenant: str = "default",
+                  node_name: list[str] | None = None) -> Any:
     """Post-ingestion enrichment / conflict reconciliation (memify)."""
     await connect()
-    return await cognee.improve(dataset=dataset_for(project), node_name=node_name)
+    return await cognee.improve(dataset=dataset_for(tenant, project), node_name=node_name)
 
 
-async def forget(*, project: str | None = None, everything: bool = False) -> dict:
-    """Surgically delete a project's memory, or wipe everything."""
+async def forget(*, project: str | None = None, tenant: str = "default",
+                 everything: bool = False) -> dict:
+    """Surgically delete a project's memory (Cognee + ledger), or wipe everything."""
     await connect()
     if everything:
         return await cognee.forget(everything=True)
     if not project:
         raise ValueError("forget() needs a project, or everything=True")
-    return await cognee.forget(dataset=dataset_for(project))
+    res = await cognee.forget(dataset=dataset_for(tenant, project))
+    try:
+        ledger.delete_project(tenant, project)  # keep ledger in sync (Stage 10 consistency)
+    except Exception:
+        pass
+    return res
 
 
 # --------------------------------------------------------------------------
 # Conflict detection + reconciliation (the "Best Use of Cognee" differentiator)
 # --------------------------------------------------------------------------
-async def detect_conflicts(*, project: str = "default") -> dict:
+async def detect_conflicts(*, project: str = "default", tenant: str = "default") -> dict:
     """Ask Cognee's LLM to surface contradictory memories in a project.
 
     Returns {"has_conflicts": bool, "conflicts": [str], "raw": str} and records
@@ -164,7 +192,7 @@ async def detect_conflicts(*, project: str = "default") -> dict:
     results = await cognee.recall(
         "Find any contradictory or conflicting facts among the stored memories about "
         "databases, languages, tools, settings, conventions, and decisions.",
-        datasets=[dataset_for(project)],
+        datasets=[dataset_for(tenant, project)],
         system_prompt=_CONFLICT_SYSTEM_PROMPT,
         top_k=50,
         auto_route=True,
@@ -177,14 +205,14 @@ async def detect_conflicts(*, project: str = "default") -> dict:
     ]
     for desc in conflicts:
         try:
-            ledger.record_conflict(project=project, description=desc)
+            ledger.record_conflict(tenant=tenant, project=project, description=desc)
         except Exception:
             pass
     return {"has_conflicts": bool(conflicts), "conflicts": conflicts, "raw": raw}
 
 
-async def reconcile(*, project: str = "default", resolution: str | None = None,
-                    agent: str = "passport") -> dict:
+async def reconcile(*, project: str = "default", tenant: str = "default",
+                    resolution: str | None = None, agent: str = "passport") -> dict:
     """Reconcile a project's memory: record an authoritative resolution fact, mark
     ledger conflicts resolved, and run improve()/memify if the backend supports it.
 
@@ -194,15 +222,15 @@ async def reconcile(*, project: str = "default", resolution: str | None = None,
     await connect()
     memify = {"ran": False, "detail": None}
     try:
-        improved = await cognee.improve(dataset=dataset_for(project))
+        improved = await cognee.improve(dataset=dataset_for(tenant, project))
         memify = {"ran": True, "detail": _text_of(improved) if improved else None}
     except Exception as e:
         memify = {"ran": False, "detail": f"memify not available on this backend ({e})"}
 
     if resolution:
-        await remember(resolution, agent=agent, session="reconcile", project=project)
+        await remember(resolution, agent=agent, session="reconcile", project=project, tenant=tenant)
     try:
-        ledger.mark_conflicts_resolved(project)
+        ledger.mark_conflicts_resolved(tenant, project)
     except Exception:
         pass
     return {"ok": True, "resolution": resolution, "memify": memify}

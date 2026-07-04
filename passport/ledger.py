@@ -4,6 +4,9 @@ Why this exists: Cognee's built-in provenance graph reads a local system DB that
 is empty in cloud mode, so we keep our OWN lightweight ledger of who-taught-what.
 It's the source of truth for the dashboard (Stage 5) and the conflict log.
 
+Stage 8: every row is scoped to a `tenant` (a user/workspace) so multiple users
+share the one file without seeing each other's memory.
+
 All Passport processes (each IDE's MCP server, the API, the dashboard) share this
 one file, so provenance aggregates across every agent.
 """
@@ -22,75 +25,106 @@ def _conn() -> sqlite3.Connection:
     return c
 
 
+def _ensure_tenant_column(c: sqlite3.Connection, table: str) -> None:
+    cols = {r[1] for r in c.execute(f"PRAGMA table_info({table})").fetchall()}
+    if "tenant" not in cols:
+        c.execute(f"ALTER TABLE {table} ADD COLUMN tenant TEXT DEFAULT 'default'")
+
+
 def init() -> None:
     with _conn() as c:
         c.execute(
             """CREATE TABLE IF NOT EXISTS memories(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tenant TEXT DEFAULT 'default',
                 agent TEXT, session TEXT, project TEXT, text TEXT, created_at REAL)"""
         )
         c.execute(
             """CREATE TABLE IF NOT EXISTS conflicts(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tenant TEXT DEFAULT 'default',
                 project TEXT, description TEXT, created_at REAL, resolved INTEGER DEFAULT 0)"""
         )
+        # Migrate pre-Stage-8 databases that lack the tenant column.
+        _ensure_tenant_column(c, "memories")
+        _ensure_tenant_column(c, "conflicts")
 
 
-def record_memory(agent: str, session: str, project: str, text: str, ts: float | None = None) -> None:
+def record_memory(tenant: str, agent: str, session: str, project: str, text: str,
+                  ts: float | None = None) -> None:
     init()
     with _conn() as c:
         c.execute(
-            "INSERT INTO memories(agent,session,project,text,created_at) VALUES(?,?,?,?,?)",
-            (agent, session, project, text, ts if ts is not None else time.time()),
+            "INSERT INTO memories(tenant,agent,session,project,text,created_at) VALUES(?,?,?,?,?,?)",
+            (tenant, agent, session, project, text, ts if ts is not None else time.time()),
         )
 
 
-def list_memories(project: str | None = None) -> list[dict]:
+def list_memories(tenant: str | None = None, project: str | None = None) -> list[dict]:
     init()
+    clauses, args = [], []
+    if tenant:
+        clauses.append("tenant=?"); args.append(tenant)
+    if project:
+        clauses.append("project=?"); args.append(project)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     with _conn() as c:
-        if project:
-            rows = c.execute(
-                "SELECT id,agent,session,project,text,created_at FROM memories WHERE project=? ORDER BY created_at",
-                (project,),
-            ).fetchall()
-        else:
-            rows = c.execute(
-                "SELECT id,agent,session,project,text,created_at FROM memories ORDER BY created_at"
-            ).fetchall()
+        rows = c.execute(
+            f"SELECT id,tenant,agent,session,project,text,created_at FROM memories{where} ORDER BY created_at",
+            args,
+        ).fetchall()
     return [
-        {"id": r[0], "agent": r[1], "session": r[2], "project": r[3], "text": r[4], "created_at": r[5]}
+        {"id": r[0], "tenant": r[1], "agent": r[2], "session": r[3],
+         "project": r[4], "text": r[5], "created_at": r[6]}
         for r in rows
     ]
 
 
-def record_conflict(project: str, description: str, ts: float | None = None) -> None:
+def record_conflict(tenant: str, project: str, description: str, ts: float | None = None) -> None:
     init()
     with _conn() as c:
         c.execute(
-            "INSERT INTO conflicts(project,description,created_at) VALUES(?,?,?)",
-            (project, description, ts if ts is not None else time.time()),
+            "INSERT INTO conflicts(tenant,project,description,created_at) VALUES(?,?,?,?)",
+            (tenant, project, description, ts if ts is not None else time.time()),
         )
 
 
-def list_conflicts(project: str | None = None) -> list[dict]:
+def list_conflicts(tenant: str | None = None, project: str | None = None) -> list[dict]:
     init()
+    clauses, args = [], []
+    if tenant:
+        clauses.append("tenant=?"); args.append(tenant)
+    if project:
+        clauses.append("project=?"); args.append(project)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     with _conn() as c:
-        if project:
-            rows = c.execute(
-                "SELECT id,project,description,created_at,resolved FROM conflicts WHERE project=? ORDER BY created_at DESC",
-                (project,),
-            ).fetchall()
-        else:
-            rows = c.execute(
-                "SELECT id,project,description,created_at,resolved FROM conflicts ORDER BY created_at DESC"
-            ).fetchall()
+        rows = c.execute(
+            f"SELECT id,tenant,project,description,created_at,resolved FROM conflicts{where} ORDER BY created_at DESC",
+            args,
+        ).fetchall()
     return [
-        {"id": r[0], "project": r[1], "description": r[2], "created_at": r[3], "resolved": bool(r[4])}
+        {"id": r[0], "tenant": r[1], "project": r[2], "description": r[3],
+         "created_at": r[4], "resolved": bool(r[5])}
         for r in rows
     ]
 
 
-def mark_conflicts_resolved(project: str) -> None:
+def mark_conflicts_resolved(tenant: str, project: str) -> None:
     init()
     with _conn() as c:
-        c.execute("UPDATE conflicts SET resolved=1 WHERE project=?", (project,))
+        c.execute("UPDATE conflicts SET resolved=1 WHERE tenant=? AND project=?", (tenant, project))
+
+
+def delete_project(tenant: str, project: str) -> None:
+    """Remove ledger rows for a project (keeps ledger in sync with forget())."""
+    init()
+    with _conn() as c:
+        c.execute("DELETE FROM memories WHERE tenant=? AND project=?", (tenant, project))
+        c.execute("DELETE FROM conflicts WHERE tenant=? AND project=?", (tenant, project))
+
+
+def list_tenants() -> list[str]:
+    init()
+    with _conn() as c:
+        rows = c.execute("SELECT DISTINCT tenant FROM memories ORDER BY tenant").fetchall()
+    return [r[0] for r in rows]
