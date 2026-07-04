@@ -4,10 +4,14 @@ Everything that touches Cognee reads from here, so switching between
 Cognee Cloud and self-hosted OSS is a single env var (COGNEE_MODE).
 """
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env by ABSOLUTE path (project root), so the MCP server works no matter
+# which directory an IDE launches it from.
+_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_ENV_PATH)
 
 # "cloud" (primary, uses Cognee Cloud) or "local" (self-hosted OSS fallback)
 COGNEE_MODE = os.getenv("COGNEE_MODE", "cloud").lower()

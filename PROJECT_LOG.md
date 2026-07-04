@@ -66,12 +66,17 @@ Known minor: aiohttp "Unclosed client session" warning on disconnect (cosmetic; 
       mode. Degrades gracefully. **Stage 5 will build our own provenance ledger instead.**
 
 ### Stage 3 — MCP Server + Agent Integration (THE KILL TEST)
-- [ ] `mcp_server.py`: expose `passport_remember / passport_recall / passport_forget`
-- [ ] Register with Claude Code
-- [ ] Register with Cursor
-- [ ] Register with Codex (3rd agent)
-- [ ] **Cross-agent loop: teach in Agent A -> recall in Agent B (and C)**
-- [M] Install + wire Claude Code, Cursor, Codex (you do the client-side registration)
+- [x] `mcp_server.py`: `passport_remember / passport_recall / passport_forget`
+      (verified via a real MCP client in `scripts/mcp_test.py`)
+- [x] `run_mcp.py` launcher + absolute `.env` load -> cwd-independent (verified from home dir)
+- [x] All agents share project "fleet"; provenance via per-client `--agent` flag
+- [M] Register with Claude Code (command provided)
+- [M] Register with Cursor (config provided)
+- [M] Register with Codex (config provided)
+- [ ] **Cross-agent loop: teach in Agent A -> recall in Agent B (and C)** (after registration)
+
+Caveat: avoid rapid create/delete of the SAME dataset name in one burst — the
+cloud tenant can 409/500 on churn. Use fresh dataset/project names in tests.
 
 ### Stage 4 — Conflict Detection & Reconciliation
 - [ ] Detect contradictory facts on write (embedding threshold + same entity)
