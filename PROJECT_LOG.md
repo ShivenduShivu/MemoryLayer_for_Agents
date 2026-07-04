@@ -21,6 +21,9 @@ Update this file as decisions change or stages complete.
 | D4 | 2026-07-04 | Stack: Python 3.11+, FastAPI, **cognee 1.2.2**, MCP SDK 1.28.1, Streamlit | Matches Cognee ecosystem; fast to ship |
 | D5 | 2026-07-04 | Commits authored **solely by ShivenduShivu** — no Claude co-author, no other contributors | User requirement |
 | D6 | 2026-07-04 | Secrets only in `.env` (gitignored); `.env.template` removed after key leaked into it | Public repo — no secrets committed |
+| D7 | 2026-07-04 | **Cognee Cloud credit = ~$37 (ample).** Use freely when genuinely needed for verification; just avoid wasteful/repeated calls. `local` OSS mode remains a fallback if ever needed | User confirmed ample credit |
+| D8 | 2026-07-04 | **Codex is a 3rd fleet agent.** Demo = Claude Code + Cursor + Codex, all MCP clients sharing one brain (stronger cross-agent story). May also use Codex to assist implementation | User has Codex; more heterogeneous agents = better demo |
+| D9 | 2026-07-04 | Dev-prompt reduction: `.claude/settings.local.json` in **both** roots (codeforces session root + passport), gitignored, allowlists safe commands; `git push`/`rm`/`reset --hard` still prompt | Works whether Claude Code is launched from either folder |
 
 **Open decisions / to revisit:**
 - Rotate the exposed Cognee API key before/after submission (flagged, user's call).
@@ -54,18 +57,21 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress · `[M]` needs your manual
 
 Known minor: aiohttp "Unclosed client session" warning on disconnect (cosmetic; Cognee CloudClient session cleanup — revisit if noisy).
 
-### Stage 2 — Passport API Server
-- [ ] `server.py`: FastAPI with `/remember /recall /improve /forget /graph`
-- [ ] API-key auth (single passport key)
-- [ ] Provenance tagging enforced on every write
-- [ ] Manual test via curl / docs page
+### Stage 2 — Passport API Server  ✅ DONE
+- [x] `server.py`: FastAPI with `/health /remember /recall /improve /forget /graph`
+- [x] API-key auth via `X-Passport-Key` (401 verified when missing)
+- [x] Provenance tags returned on every write (agent/project/session)
+- [x] Tested end-to-end (`scripts/api_test.py`, in-process TestClient) on live Cloud
+- [!] `/graph` (cognee.get_memory_provenance_graph) reads LOCAL sqlite -> empty in cloud
+      mode. Degrades gracefully. **Stage 5 will build our own provenance ledger instead.**
 
 ### Stage 3 — MCP Server + Agent Integration (THE KILL TEST)
 - [ ] `mcp_server.py`: expose `passport_remember / passport_recall / passport_forget`
 - [ ] Register with Claude Code
-- [ ] Register with Cursor (or Codex)
-- [ ] **Cross-agent loop: teach in Agent A -> recall in Agent B**
-- [M] Install + wire Claude Code and Cursor (you do the client-side registration)
+- [ ] Register with Cursor
+- [ ] Register with Codex (3rd agent)
+- [ ] **Cross-agent loop: teach in Agent A -> recall in Agent B (and C)**
+- [M] Install + wire Claude Code, Cursor, Codex (you do the client-side registration)
 
 ### Stage 4 — Conflict Detection & Reconciliation
 - [ ] Detect contradictory facts on write (embedding threshold + same entity)
@@ -73,7 +79,10 @@ Known minor: aiohttp "Unclosed client session" warning on disconnect (cosmetic; 
 - [ ] Conflict log persisted for the dashboard
 
 ### Stage 5 — Dashboard
-- [ ] Streamlit app: live knowledge graph
+- [ ] **Passport provenance ledger** (local JSON/SQLite of every remember: agent,
+      session, project, text, timestamp) — the source for the dashboard graph,
+      since cognee's provenance graph is local-sqlite-only and empty in cloud mode
+- [ ] Streamlit app: live knowledge graph from the ledger
 - [ ] Nodes colored by source agent (provenance)
 - [ ] Conflict log panel
 - [ ] Timeline / recent memories view
@@ -111,3 +120,6 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
 - 2026-07-04 — Stage 1 memory engine done. Verified real API: `remember(node_set=...)`,
   `recall(node_name=..., auto_route=True)`, `improve`, `forget`, `serve` (all async).
   Smoke test round-trip green on Cognee Cloud; recall answered via graph traversal.
+- 2026-07-04 — Stage 2 API server done. 5 endpoints + auth (401 enforced). E2E test green.
+  Finding: cognee provenance graph is local-sqlite-only -> Stage 5 uses own ledger.
+  Decisions D7 (ample credit ~$37), D8 (Codex 3rd agent), D9 (permission allowlist) logged.

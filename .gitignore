@@ -19,3 +19,6 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# Claude Code local settings (personal, not shared)
+.claude/settings.local.json
