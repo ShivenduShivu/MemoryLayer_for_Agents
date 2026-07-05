@@ -140,6 +140,14 @@ Enable auto-capture (add to a Claude Code settings.json; needs the API server ru
 - [x] Dashboard has a **tenant selector** to view each user's isolated brain
 - Key finding logged (D11): completion-mode recall leaks across datasets in a shared tenant.
 
+### Stage 9 — Retrieval Intelligence  ✅ DONE
+- [x] `score_importance()` heuristic (1-10) stored per memory in the ledger
+- [x] Recency (exponential decay, tau=14d) + per-agent trust weights (`passport`=1.3)
+- [x] `recall()` re-ranks candidates: **composite = (0.5·relevance + 0.25·recency +
+      0.25·importance) × trust**, with an explainable per-result score breakdown
+- [x] Verified (`scripts/ranking_test.py`): authoritative recent decision (composite 1.3)
+      outranks old tentative fact (0.575). Grounded in Generative Agents (arXiv:2304.03442).
+
 ### Stretch (only if ahead)
 - [ ] Bi-temporal "what did we believe at time T"
 - [ ] LLM importance auto-scoring
@@ -183,3 +191,6 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
 - 2026-07-04 — Stage 8 done: MULTI-TENANCY. tenant end-to-end; isolation test passed.
   Critical finding: graph/RAG completion recall leaks across datasets in a shared Cognee
   tenant -> switched recall to dataset-scoped CHUNKS (isolated). CACHING=false. forget syncs ledger.
+- 2026-07-05 — Stage 9 done: RETRIEVAL INTELLIGENCE. recall re-ranks by
+  relevance+recency+importance x trust (Generative Agents scoring); importance stored in
+  ledger. Verified authoritative/recent facts outrank stale ones.

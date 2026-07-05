@@ -13,7 +13,9 @@ All public functions are async (Cognee's V2 API is async).
 """
 from __future__ import annotations
 
+import math
 import os
+import time
 from typing import Any
 
 # Disable Cognee's session memory/cache BEFORE importing cognee, so recall reflects
@@ -48,6 +50,71 @@ def _text_of(item: Any) -> str:
     if isinstance(item, dict):
         return item.get("text") or item.get("answer") or str(item)
     return str(item)
+
+
+# --------------------------------------------------------------------------
+# Retrieval intelligence (Stage 9): score recalled facts by
+# relevance + recency + importance, boosted by source trust.
+# (Generative Agents, arXiv:2304.03442.)
+# --------------------------------------------------------------------------
+_RECENCY_TAU_DAYS = 14.0          # exponential recency decay constant
+_RANK_WEIGHTS = {"relevance": 0.5, "recency": 0.25, "importance": 0.25}
+_TRUST = {"passport": 1.3}        # reconciliation/decision facts are authoritative
+
+
+def score_importance(text: str) -> int:
+    """Heuristic 1-10 importance: durable/decisive statements score higher."""
+    t = text.lower()
+    score = 3
+    for kw, pts in (("always", 3), ("never", 3), ("decision", 3), ("must", 2),
+                    ("convention", 2), ("prefer", 2), ("standard", 2), ("policy", 2),
+                    ("we use", 1), ("our ", 1), ("rule", 2)):
+        if kw in t:
+            score += pts
+    return max(1, min(10, score))
+
+
+def _trust_for(agent: str | None) -> float:
+    return _TRUST.get(agent or "", 1.0)
+
+
+def _rerank(candidates: list[Any], tenant: str, project: str) -> list[dict]:
+    """Re-rank raw recall candidates using ledger metadata. Returns enriched dicts
+    with an explainable score breakdown, sorted best-first."""
+    mems = {m["text"].strip(): m for m in ledger.list_memories(tenant, project)}
+    now = time.time()
+    n = max(1, len(candidates))
+    out: list[dict] = []
+    for i, cand in enumerate(candidates):
+        text = _text_of(cand).strip()
+        relevance = 1.0 - i / n  # Cognee returns candidates in relevance order
+        m = mems.get(text)
+        if m:
+            age_days = max(0.0, (now - (m.get("created_at") or now)) / 86400.0)
+            recency = math.exp(-age_days / _RECENCY_TAU_DAYS)
+            importance = (m.get("importance") or 3) / 10.0
+            agent = m.get("agent")
+        else:
+            recency, importance, agent = 0.5, 0.3, None
+        trust = _trust_for(agent)
+        base = (_RANK_WEIGHTS["relevance"] * relevance
+                + _RANK_WEIGHTS["recency"] * recency
+                + _RANK_WEIGHTS["importance"] * importance)
+        composite = base * trust
+        out.append({
+            "text": text,
+            "agent": agent,
+            "created_at": m.get("created_at") if m else None,
+            "scores": {
+                "relevance": round(relevance, 3),
+                "recency": round(recency, 3),
+                "importance": round(importance, 3),
+                "trust": round(trust, 3),
+                "composite": round(composite, 4),
+            },
+        })
+    out.sort(key=lambda d: d["scores"]["composite"], reverse=True)
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -123,7 +190,8 @@ async def remember(
     )
     # Mirror into the provenance ledger (who taught what) for the dashboard + conflicts.
     try:
-        ledger.record_memory(tenant=tenant, agent=agent, session=session, project=project, text=text)
+        ledger.record_memory(tenant=tenant, agent=agent, session=session, project=project,
+                             text=text, importance=score_importance(text))
     except Exception:
         pass
     return result
@@ -146,7 +214,7 @@ async def recall(
     """
     await connect()
     node_name = [f"agent:{agent}"] if agent else None
-    return await cognee.recall(
+    candidates = await cognee.recall(
         query,
         datasets=[dataset_for(tenant, project)],
         query_type=cognee.SearchType.CHUNKS,
@@ -154,6 +222,8 @@ async def recall(
         node_name=node_name,
         top_k=top_k,
     )
+    # Re-rank by relevance + recency + importance x trust (Stage 9).
+    return _rerank(candidates, tenant, project)
 
 
 async def improve(*, project: str = "default", tenant: str = "default",
