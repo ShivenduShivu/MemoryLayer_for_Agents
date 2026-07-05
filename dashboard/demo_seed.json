@@ -6,9 +6,8 @@
     {"agent": "claude-code", "text": "The frontend is built with React and TypeScript.", "importance": 7},
     {"agent": "cursor", "text": "We deploy to AWS using Docker containers.", "importance": 7},
     {"agent": "codex", "text": "Database migrations run automatically on every deploy.", "importance": 6},
-    {"agent": "passport", "text": "Decision: the primary database is PostgreSQL (supersedes an earlier MySQL note).", "importance": 9}
+    {"agent": "claude-code", "text": "Our primary database is PostgreSQL.", "importance": 8},
+    {"agent": "cursor", "text": "We are migrating our primary database to MySQL.", "importance": 8}
   ],
-  "conflicts": [
-    {"description": "CONFLICT: primary database - 'The database is MySQL.' vs 'The database is PostgreSQL.'", "resolved": true}
-  ]
+  "conflicts": []
 }
