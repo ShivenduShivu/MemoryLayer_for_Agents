@@ -218,3 +218,6 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
   chatter 2/10). Adversarial proof: semantic recall with zero keyword overlap works.
 - 2026-07-05 — Stage 12 done: eval harness. recall@1 4/4 (100%), isolation 2/2 (100%),
   ranking PASS. Metrics in README.
+- 2026-07-05 — Deploy + demo polish: live at memlayer.streamlit.app; seeded live demo
+  workspace; README live link + Cursor/Codex MCP setup; scripts/reset_demo.py; dashboard
+  always offers default/fleet (appended) so deploy opens populated, local recording clean.

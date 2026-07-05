@@ -108,12 +108,24 @@ st.caption("One brain for Claude Code, Cursor & Codex — and it remembers who t
 seed_demo_if_empty()
 
 # ---- sidebar ----
-tenants = ledger.list_tenants() or ["default"]
+tenants = ledger.list_tenants()
+# Always offer "default" (agents' default tenant), but keep a data-bearing tenant
+# selected first so a fresh deploy opens on populated data, not an empty page.
+if "default" not in tenants:
+    tenants = tenants + ["default"]
+if not tenants:
+    tenants = ["default"]
 with st.sidebar:
     st.header("View")
     tenant = st.selectbox("Tenant (user / workspace)", tenants, index=0)
     tenant_mems = ledger.list_memories(tenant)
-    projects = sorted({m["project"] for m in tenant_mems}) or ["fleet"]
+    projects = sorted({m["project"] for m in tenant_mems})
+    # Always offer "fleet" (agents' default project), appended so a data-bearing
+    # project stays selected first (populated deploy, not an empty page).
+    if "fleet" not in projects:
+        projects = projects + ["fleet"]
+    if not projects:
+        projects = ["fleet"]
     project = st.selectbox("Project", projects, index=0)
     if st.button("🔄 Refresh"):
         st.rerun()
