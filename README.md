@@ -7,6 +7,8 @@
 
 Built for **The Hangover Part AI** hackathon (WeMakeDevs × Cognee).
 
+**🔗 Live demo:** https://memlayer.streamlit.app/
+
 ---
 
 ## The problem
@@ -101,12 +103,40 @@ python -m uvicorn passport.server:app --port 8000
 python -m streamlit run dashboard/app.py
 ```
 
-Register the MCP server in each agent (own identity per agent):
+### Connect your agents (register the MCP server)
 
+Every agent registers the **same** `run_mcp.py` but with its **own `--agent`** name (and
+optionally `--tenant <user>`) so provenance is per-agent and users stay isolated. Use
+**absolute paths**: `<py>` = your venv Python (e.g. `C:\...\passport\.venv\Scripts\python.exe`),
+`<repo>` = the project folder (e.g. `C:\...\passport`). Restart each IDE after editing.
+
+**Claude Code** — run in a terminal:
 ```bash
-claude mcp add passport -- <venv-python> <path>/run_mcp.py --agent claude-code
-# Cursor: ~/.cursor/mcp.json   |   Codex: ~/.codex/config.toml   (see docs)
+claude mcp add passport --scope user -- <py> <repo>/run_mcp.py --agent claude-code
+claude mcp list      # should show: passport ... Connected
 ```
+
+**Cursor** — edit `~/.cursor/mcp.json` (create if missing), then Settings → MCP → enable **passport**:
+```json
+{
+  "mcpServers": {
+    "passport": {
+      "command": "<py>",
+      "args": ["<repo>/run_mcp.py", "--agent", "cursor"]
+    }
+  }
+}
+```
+
+**Codex** — edit `~/.codex/config.toml`:
+```toml
+[mcp_servers.passport]
+command = "<py>"
+args = ["<repo>/run_mcp.py", "--agent", "codex"]
+```
+
+All three point at the **same Cognee tenant + project**, so they share one brain; only the
+`--agent` tag differs. On Windows, use `\\` (escaped) in JSON paths and single `\` in TOML.
 
 ## Research grounding
 
