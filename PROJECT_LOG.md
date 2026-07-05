@@ -156,6 +156,11 @@ Enable auto-capture (add to a Claude Code settings.json; needs the API server ru
 - Note (honesty): recall semantics + conflict detection + importance are now real AI;
   trust weights remain an explicit admin policy (normal for production systems).
 
+### Stage 12 — Evaluation harness  ✅ DONE
+- [x] `scripts/eval_harness.py`: measures cross-agent recall@1, tenant isolation, ranking
+- [x] Live results: recall@1 **4/4 (100%)**, isolation **2/2 (100% non-leak)**, ranking **PASS**
+- [x] Metrics table added to README ("Evaluation — measured, not claimed")
+
 ### Stretch (only if ahead)
 - [ ] Bi-temporal "what did we believe at time T"
 - [ ] LLM importance auto-scoring
@@ -202,3 +207,7 @@ Tracked here so nothing slips. I'll tag each with `[M]` in the stages above.
 - 2026-07-05 — Stage 9 done: RETRIEVAL INTELLIGENCE. recall re-ranks by
   relevance+recency+importance x trust (Generative Agents scoring); importance stored in
   ledger. Verified authoritative/recent facts outrank stale ones.
+- 2026-07-05 — Stage 9.5: LLM-based importance scoring via Cognee cloud LLM (policy 9/10,
+  chatter 2/10). Adversarial proof: semantic recall with zero keyword overlap works.
+- 2026-07-05 — Stage 12 done: eval harness. recall@1 4/4 (100%), isolation 2/2 (100%),
+  ranking PASS. Metrics in README.

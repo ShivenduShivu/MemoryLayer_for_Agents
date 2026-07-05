@@ -75,6 +75,19 @@ flowchart LR
 | `improve()` / memify | Reconciliation enrichment (self-hosted/OSS; 404 on Cloud) |
 | `forget()` | Surgical, provenance-aware deletion |
 
+## Evaluation (measured, not claimed)
+
+Run live against Cognee Cloud via `scripts/eval_harness.py` — reproducible:
+
+| Metric | Result |
+|---|---|
+| Cross-agent recall@1 (facts taught by one agent, retrieved by a paraphrased query) | **4/4 (100%)** |
+| Tenant isolation (two tenants, contradictory facts, measured leakage) | **2/2 (100% non-leak)** |
+| Ranking correctness (authoritative recent decision outranks stale note) | **PASS** |
+
+Focused harness (not a full benchmark), but every number is produced by a real run —
+semantic recall, hard tenant isolation, and LLM-scored ranking all verified end-to-end.
+
 ## Quick start
 
 ```bash
