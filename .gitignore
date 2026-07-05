@@ -32,3 +32,6 @@ venv/
 
 # Local reference docs (not committed)
 docs/
+
+# Streamlit secrets (never commit)
+.streamlit/secrets.toml

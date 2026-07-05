@@ -161,6 +161,13 @@ Enable auto-capture (add to a Claude Code settings.json; needs the API server ru
 - [x] Live results: recall@1 **4/4 (100%)**, isolation **2/2 (100% non-leak)**, ranking **PASS**
 - [x] Metrics table added to README ("Evaluation — measured, not claimed")
 
+### Stage 13 — Deployment prep (free tier)  ✅ DONE (deploy = manual)
+- [x] Dashboard made deploy-resilient: light import (Cognee lazy), Streamlit-secrets shim,
+      self-seed from `dashboard/demo_seed.json`, live controls degrade gracefully
+- [x] `.streamlit/config.toml`, `Procfile`, `DEPLOY.md` (Streamlit Community Cloud + Render, both FREE)
+- [x] Compiles + boots headless clean
+- [M] Deploy it (you): share.streamlit.io -> repo -> `dashboard/app.py` -> add Cognee secrets
+
 ### Stretch (only if ahead)
 - [ ] Bi-temporal "what did we believe at time T"
 - [ ] LLM importance auto-scoring

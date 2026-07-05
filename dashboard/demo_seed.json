@@ -1,0 +1,14 @@
+{
+  "tenant": "demo",
+  "project": "webapp",
+  "memories": [
+    {"agent": "claude-code", "text": "Our API authentication uses JWT tokens.", "importance": 8},
+    {"agent": "claude-code", "text": "The frontend is built with React and TypeScript.", "importance": 7},
+    {"agent": "cursor", "text": "We deploy to AWS using Docker containers.", "importance": 7},
+    {"agent": "codex", "text": "Database migrations run automatically on every deploy.", "importance": 6},
+    {"agent": "passport", "text": "Decision: the primary database is PostgreSQL (supersedes an earlier MySQL note).", "importance": 9}
+  ],
+  "conflicts": [
+    {"description": "CONFLICT: primary database - 'The database is MySQL.' vs 'The database is PostgreSQL.'", "resolved": true}
+  ]
+}
