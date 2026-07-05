@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import time
 from typing import Any
 
@@ -62,8 +63,15 @@ _RANK_WEIGHTS = {"relevance": 0.5, "recency": 0.25, "importance": 0.25}
 _TRUST = {"passport": 1.3}        # reconciliation/decision facts are authoritative
 
 
+_IMPORTANCE_SYS = (
+    "You rate how important a statement is for a team to remember long-term, on a "
+    "scale of 1 to 10 (10 = a critical decision, rule, or policy; 1 = trivial or "
+    "transient chatter). Respond with ONLY a single integer."
+)
+
+
 def score_importance(text: str) -> int:
-    """Heuristic 1-10 importance: durable/decisive statements score higher."""
+    """Fast heuristic 1-10 importance (fallback / auto-capture path)."""
     t = text.lower()
     score = 3
     for kw, pts in (("always", 3), ("never", 3), ("decision", 3), ("must", 2),
@@ -72,6 +80,25 @@ def score_importance(text: str) -> int:
         if kw in t:
             score += pts
     return max(1, min(10, score))
+
+
+async def score_importance_llm(text: str, tenant: str, project: str) -> int:
+    """Real LLM importance rating (1-10) via Cognee's cloud LLM. Falls back to the
+    heuristic if the LLM is unavailable or returns something unparseable."""
+    try:
+        r = await cognee.recall(
+            f"Rate the long-term importance of this statement: '{text}'",
+            system_prompt=_IMPORTANCE_SYS,
+            datasets=[dataset_for(tenant, project)],
+            top_k=1,
+        )
+        out = " ".join(_text_of(x) for x in r)
+        m = re.search(r"\b(10|[1-9])\b", out)
+        if m:
+            return int(m.group(1))
+    except Exception:
+        pass
+    return score_importance(text)
 
 
 def _trust_for(agent: str | None) -> float:
@@ -188,10 +215,16 @@ async def remember(
         node_set=provenance_tags(agent, session, project, tenant),
         run_in_background=background,
     )
+    # Importance: LLM-rated for deliberate writes (intelligent); fast heuristic for
+    # background auto-capture so it never blocks a turn.
+    if background:
+        importance = score_importance(text)
+    else:
+        importance = await score_importance_llm(text, tenant, project)
     # Mirror into the provenance ledger (who taught what) for the dashboard + conflicts.
     try:
         ledger.record_memory(tenant=tenant, agent=agent, session=session, project=project,
-                             text=text, importance=score_importance(text))
+                             text=text, importance=importance)
     except Exception:
         pass
     return result

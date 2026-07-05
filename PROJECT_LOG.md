@@ -27,6 +27,7 @@ Update this file as decisions change or stages complete.
 | D10 | 2026-07-04 | **Multi-tenancy** via tenant-namespaced datasets (`passport_{tenant}_{project}`) + `tenant:` node_set tag + ledger `tenant` column | Logical isolation within one Cognee tenant; per-user Cognee tenants = production path |
 | D11 | 2026-07-04 | **recall uses CHUNKS (dataset-scoped), not GRAPH/RAG completion** | Finding: completion recall leaks across datasets in a shared tenant; CHUNKS is provably isolated. Passport returns faithful facts, the agent synthesizes. Conflict detection still uses graph completion. |
 | D12 | 2026-07-04 | Disable Cognee session cache (`CACHING=false`) before import | Session memory returned stale cross-session context; off = recall reflects the actual dataset |
+| D13 | 2026-07-05 | **LLM-based importance scoring** via Cognee's cloud LLM (recall + system prompt), heuristic fallback; deliberate writes use LLM, background auto-capture uses heuristic for speed | Makes importance genuinely intelligent (not keywords). Verified: rated a policy 9/10, chatter 2/10. Cloud LLM reachable without a local key. |
 
 **Open decisions / to revisit:**
 - Rotate the exposed Cognee API key before/after submission (flagged, user's call).
@@ -145,8 +146,15 @@ Enable auto-capture (add to a Claude Code settings.json; needs the API server ru
 - [x] Recency (exponential decay, tau=14d) + per-agent trust weights (`passport`=1.3)
 - [x] `recall()` re-ranks candidates: **composite = (0.5·relevance + 0.25·recency +
       0.25·importance) × trust**, with an explainable per-result score breakdown
-- [x] Verified (`scripts/ranking_test.py`): authoritative recent decision (composite 1.3)
-      outranks old tentative fact (0.575). Grounded in Generative Agents (arXiv:2304.03442).
+- [x] Verified (`scripts/ranking_test.py`): authoritative recent decision outranks old
+      tentative fact. Grounded in Generative Agents (arXiv:2304.03442).
+
+### Stage 9.5 — LLM importance (make it genuinely intelligent)  ✅ DONE
+- [x] `score_importance_llm()`: real LLM rating 1-10 via Cognee's cloud LLM (no extra key)
+- [x] Heuristic fallback; deliberate writes use LLM, background auto-capture uses heuristic
+- [x] Verified: policy statement -> 9/10, trivial chatter -> 2/10 (calibrated, not keyword)
+- Note (honesty): recall semantics + conflict detection + importance are now real AI;
+  trust weights remain an explicit admin policy (normal for production systems).
 
 ### Stretch (only if ahead)
 - [ ] Bi-temporal "what did we believe at time T"
