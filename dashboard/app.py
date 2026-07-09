@@ -11,6 +11,7 @@ Run:
     ./.venv/Scripts/python.exe -m streamlit run dashboard/app.py
 """
 import asyncio
+import html
 import json
 import os
 import sys
@@ -174,7 +175,8 @@ st.subheader("🕸️ Provenance graph — colored by source agent")
 if mems:
     if agents:
         legend = " &nbsp;&nbsp; ".join(
-            f"<span style='color:{color_for(a)};font-size:18px'>●</span> {a}" for a in agents
+            f"<span style='color:{color_for(a)};font-size:18px'>●</span> {html.escape(a)}"
+            for a in agents
         )
         st.markdown(legend, unsafe_allow_html=True)
     st.graphviz_chart(build_dot(mems), use_container_width=True)
@@ -188,8 +190,8 @@ with left:
         ts = time.strftime("%H:%M:%S", time.localtime(m["created_at"]))
         st.markdown(
             f"<span style='background:{color_for(m['agent'])};padding:2px 8px;border-radius:8px;"
-            f"color:#111;font-size:12px'>{m['agent']}</span> "
-            f"<span style='color:#888;font-size:12px'>{ts}</span><br>{m['text']}",
+            f"color:#111;font-size:12px'>{html.escape(m['agent'])}</span> "
+            f"<span style='color:#888;font-size:12px'>{ts}</span><br>{html.escape(m['text'])}",
             unsafe_allow_html=True,
         )
         st.write("")
